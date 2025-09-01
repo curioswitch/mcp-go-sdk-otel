@@ -10,15 +10,12 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 func TestBidi(t *testing.T) {
-	otel.SetTextMapPropagator(propagation.TraceContext{})
-
 	exp := tracetest.NewInMemoryExporter()
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sdktrace.NewSimpleSpanProcessor(exp)))
 	tracer := tp.Tracer("test")
@@ -41,8 +38,8 @@ func TestBidi(t *testing.T) {
 	}
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "server", Version: "v0.0.1"}, nil)
-	server.AddReceivingMiddleware(ReceivingMiddleware())
-	server.AddSendingMiddleware(SendingMiddleware())
+	server.AddReceivingMiddleware(ReceivingMiddleware(TextMapPropagator(propagation.TraceContext{})))
+	server.AddSendingMiddleware(SendingMiddleware(TextMapPropagator(propagation.TraceContext{})))
 	server.AddTool(
 		&mcp.Tool{
 			Name:        "hello",
@@ -71,8 +68,8 @@ func TestBidi(t *testing.T) {
 			}, nil
 		},
 	})
-	client.AddReceivingMiddleware(ReceivingMiddleware())
-	client.AddSendingMiddleware(SendingMiddleware())
+	client.AddReceivingMiddleware(ReceivingMiddleware(TextMapPropagator(propagation.TraceContext{})))
+	client.AddSendingMiddleware(SendingMiddleware(TextMapPropagator(propagation.TraceContext{})))
 	clientSession, err := client.Connect(ctx, clientTransport, nil)
 	require.NoError(t, err)
 	defer clientSession.Close()
