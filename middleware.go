@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"go.opentelemetry.io/otel"
 )
 
 // ReceivingMiddleware returns middleware to extract OpenTelemetry context from received messages.
@@ -19,10 +18,11 @@ import (
 //		server.AddReceivingMiddleware(mcpotel.ReceivingMiddleware())
 //		client.AddReceivingMiddleware(mcpotel.ReceivingMiddleware())
 //	}
-func ReceivingMiddleware() mcp.Middleware {
+func ReceivingMiddleware(opts ...Option) mcp.Middleware {
+	conf := newConfig(opts)
 	return func(mh mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (result mcp.Result, err error) {
-			ctx = otel.GetTextMapPropagator().Extract(ctx, stringAnyMapCarrier{req.GetParams().GetMeta()})
+			ctx = conf.propagator.Extract(ctx, stringAnyMapCarrier{req.GetParams().GetMeta()})
 			return mh(ctx, method, req)
 		}
 	}
@@ -40,7 +40,8 @@ func ReceivingMiddleware() mcp.Middleware {
 //		client.AddSendingMiddleware(mcpotel.SendingMiddleware())
 //		server.AddSendingMiddleware(mcpotel.SendingMiddleware())
 //	}
-func SendingMiddleware() mcp.Middleware {
+func SendingMiddleware(opts ...Option) mcp.Middleware {
+	conf := newConfig(opts)
 	return func(mh mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (result mcp.Result, err error) {
 			params := req.GetParams()
@@ -49,7 +50,7 @@ func SendingMiddleware() mcp.Middleware {
 				meta = make(map[string]any)
 				params.SetMeta(meta)
 			}
-			otel.GetTextMapPropagator().Inject(ctx, stringAnyMapCarrier{meta})
+			conf.propagator.Inject(ctx, stringAnyMapCarrier{meta})
 			return mh(ctx, method, req)
 		}
 	}
